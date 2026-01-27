@@ -11,7 +11,26 @@ import os
 import aiohttp
 from bs4 import BeautifulSoup
 import re
+import random
+import cloudscraper
 
+class CloudFlareParser:
+    def __init__(self):
+        self.scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'mobile': False,
+            }
+        )
+    
+    async def fetch_with_cloudflare(self, url: str):
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, 
+            lambda: self.scraper.get(url, timeout=30)
+        )
+        return response.text
 # ========== КОНФИГУРАЦИЯ ==========
 TELEGRAM_BOT_TOKEN = "8521669515:AAFMhXlWv_clmqvqN2VrNgXtU-yJdHVKwdc"
 # Ваш user ID в Telegram (узнать можно у бота @userinfobot)
@@ -255,18 +274,57 @@ viewed_manager = ViewedAdsManager()
 # Словарь для хранения ссылок на объявления (временно в памяти)
 ad_links_cache = {}
 
+# ========== Список User-Agent для ротации ==========
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+]
+
+def get_random_headers():
+    """Генерирует случайные заголовки для запросов"""
+    return {
+        'User-Agent': random.choice(USER_AGENTS),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0',
+        'DNT': '1',
+    }
+
 # ========== ПАРСЕР OLX ==========
-class OLXParser:
+import requests
+
+class OLXAPI:
     def __init__(self):
-        self.session = None
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
+        self.api_key = "427b6a7738b14c53ae53c5361fac8aab"  # Получите на scrapingant.com, scraperapi.com и т.д.
+    
+    async def fetch_with_api(self, url: str):
+        """Используем API для обхода блокировок"""
+        # ScrapingAnt API (бесплатный тариф)
+        api_url = f"https://api.scrapingant.com/v2/general"
+        params = {
+            'url': url,
+            'x-api-key': self.api_key,
+            'browser': 'false',
+            'proxy_country': 'UA'  # Украина
         }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url, params=params) as response:
+                return await response.text()
     
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession(headers=self.headers)
+        self.session = aiohttp.ClientSession(headers=get_random_headers())
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -274,62 +332,95 @@ class OLXParser:
             await self.session.close()
     
     async def fetch_page(self, url: str, params: dict = None) -> str:
-        """Получаем HTML страницу"""
+        """Получаем HTML страницу с обработкой ошибок"""
         try:
-            async with self.session.get(url, params=params, timeout=10) as response:
-                response.raise_for_status()
-                return await response.text()
+            # Добавляем случайную задержку перед запросом
+            await asyncio.sleep(random.uniform(1, 3))
+            
+            async with self.session.get(url, params=params, timeout=15) as response:
+                if response.status == 403:
+                    logger.error(f"Доступ запрещен (403). Пробуем другие заголовки...")
+                    # Пробуем с другими заголовками
+                    new_headers = get_random_headers()
+                    self.session.headers.update(new_headers)
+                    
+                    async with self.session.get(url, params=params, timeout=15) as retry_response:
+                        retry_response.raise_for_status()
+                        return await retry_response.text()
+                else:
+                    response.raise_for_status()
+                    return await response.text()
+        except aiohttp.ClientError as e:
+            logger.error(f"Ошибка сети при запросе {url}: {e}")
+        except asyncio.TimeoutError:
+            logger.error(f"Таймаут при запросе {url}")
         except Exception as e:
-            logger.error(f"Ошибка при запросе {url}: {e}")
-            return ""
+            logger.error(f"Неизвестная ошибка при запросе {url}: {e}")
+        return ""
     
     def parse_ads_from_html(self, html: str) -> list:
         """Парсим список объявлений из HTML"""
         ads = []
-        soup = BeautifulSoup(html, 'lxml')
+        if not html:
+            return ads
         
-        ad_cards = soup.find_all('div', {'data-cy': 'l-card'})
-        
-        for card in ad_cards:
-            try:
-                link_tag = card.find('a', href=True)
-                if not link_tag:
-                    continue
-                
-                link = link_tag['href']
-                if not link.startswith('http'):
-                    link = OLX_BASE_URL + link
-                
-                # Извлекаем ID объявления
-                ad_id = ""
-                if '/obyavlenie/' in link:
-                    parts = link.split('/obyavlenie/')[-1]
-                    if '-ID' in parts.upper():
-                        ad_id = parts.split('-ID')[-1].replace('.html', '').strip()
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Пробуем разные селекторы для поиска объявлений
+            ad_cards = soup.find_all('div', {'data-cy': 'l-card'})
+            
+            # Если не нашли, пробуем другие селекторы
+            if not ad_cards:
+                ad_cards = soup.find_all('div', class_=re.compile(r'css-.*'))
+            
+            for card in ad_cards:
+                try:
+                    link_tag = card.find('a', href=True)
+                    if not link_tag:
+                        continue
+                    
+                    link = link_tag['href']
+                    if not link.startswith('http'):
+                        link = OLX_BASE_URL + link
+                    
+                    # Извлекаем ID объявления
+                    ad_id = ""
+                    if '/obyavlenie/' in link:
+                        parts = link.split('/obyavlenie/')[-1]
+                        if '-ID' in parts.upper():
+                            ad_id = parts.split('-ID')[-1].replace('.html', '').strip()
+                        else:
+                            ad_id = parts.split('-')[-1].replace('.html', '').strip()
                     else:
-                        ad_id = parts.split('-')[-1].replace('.html', '').strip()
-                else:
-                    ad_id = link.split('/')[-1].replace('.html', '').strip()
-                
-                if not ad_id or len(ad_id) < 3:
+                        ad_id = link.split('/')[-1].replace('.html', '').strip()
+                    
+                    if not ad_id or len(ad_id) < 3:
+                        continue
+                    
+                    # Извлекаем заголовок
+                    title = "Объявление с OLX"
+                    title_tag = card.find('h6') or card.find('div', class_=re.compile(r'title'))
+                    if title_tag:
+                        title = title_tag.text.strip()
+                    
+                    title = re.sub(r'\s+', ' ', title).strip()
+                    
+                    # Сохраняем ссылку в кэш
+                    ad_links_cache[ad_id] = link
+                    
+                    ads.append({
+                        'id': ad_id,
+                        'title': title,
+                        'link': link,
+                    })
+                    
+                except Exception as e:
+                    logger.debug(f"Ошибка парсинга карточки: {e}")
                     continue
-                
-                title_tag = card.find('h6')
-                title = title_tag.text.strip() if title_tag else "Без названия"
-                title = re.sub(r'\s+', ' ', title).strip()
-                
-                # Сохраняем ссылку в кэш
-                ad_links_cache[ad_id] = link
-                
-                ads.append({
-                    'id': ad_id,
-                    'title': title,
-                    'link': link,
-                })
-                
-            except Exception as e:
-                logger.error(f"Ошибка парсинга карточки: {e}")
-                continue
+                    
+        except Exception as e:
+            logger.error(f"Ошибка парсинга HTML: {e}")
         
         return ads
     
@@ -371,16 +462,15 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
         builder.row(
             InlineKeyboardButton(
                 text="✅ Прочитано",
-                callback_data=f"viewed_info:{ad_id}:{message_id}"
+                callback_data=f"vi:{ad_id}:{message_id}"  # Еще короче
             )
         )
     else:
         # Если не просмотрено - показываем кнопку для открытия
-        # Используем короткий callback без длинной ссылки
         builder.row(
             InlineKeyboardButton(
                 text="📱 Открыть объявление",
-                callback_data=f"open_ad:{ad_id}:{message_id}"
+                callback_data=f"oa:{ad_id}:{message_id}"  # Еще короче
             )
         )
     
@@ -388,7 +478,7 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
     builder.row(
         InlineKeyboardButton(
             text="🔄 Повторить отправку",
-            callback_data=f"resend:{message_id}"
+            callback_data=f"rs:{message_id}"  # Еще короче
         )
     )
     
@@ -399,7 +489,7 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
     builder.row(
         InlineKeyboardButton(
             text=f"📊 {sent_today}/{DAILY_LIMIT}",
-            callback_data="stats_info"
+            callback_data="si"  # Еще короче
         )
     )
     
@@ -498,14 +588,22 @@ async def send_ad_simple(ad: dict, user_id: int) -> bool:
         
         message_text = f"{ad['link']}"
         
-        # Простая клавиатура с меньшим количеством данных
+        # Простая клавиатура с URL кнопкой
         builder = InlineKeyboardBuilder()
         
-        # Кнопка для открытия (простая версия)
+        # Кнопка для открытия (URL кнопка)
         builder.row(
             InlineKeyboardButton(
-                text="📱 Открыть",
-                url=ad['link']  # Используем URL вместо callback
+                text="📱 Открыть объявление",
+                url=ad['link']
+            )
+        )
+        
+        # Кнопка для пометки как прочитанного
+        builder.row(
+            InlineKeyboardButton(
+                text="✅ Отметить как прочитанное",
+                callback_data=f"mr:{ad['id']}"  # Короткий callback
             )
         )
         
@@ -564,7 +662,7 @@ async def resend_ad_to_user(ad_info: dict, user_id: int) -> bool:
         return False
 
 # ========== ОБРАБОТЧИКИ CALLBACK ==========
-@dp.callback_query(F.data.startswith("open_ad:"))
+@dp.callback_query(F.data.startswith("oa:"))  # open_ad
 async def handle_open_ad_callback(callback: CallbackQuery):
     """Обработчик для кнопки "Открыть объявление" - открывает ссылку и меняет кнопку"""
     try:
@@ -616,7 +714,29 @@ async def handle_open_ad_callback(callback: CallbackQuery):
         logger.error(f"Ошибка обработки open_ad callback: {e}")
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
-@dp.callback_query(F.data.startswith("viewed_info:"))
+@dp.callback_query(F.data.startswith("mr:"))  # mark_read
+async def handle_mark_read_callback(callback: CallbackQuery):
+    """Обработчик для кнопки "Отметить как прочитанное" в простом режиме"""
+    try:
+        data_parts = callback.data.split(":")
+        if len(data_parts) < 2:
+            await callback.answer("❌ Ошибка данных", show_alert=True)
+            return
+        
+        ad_id = data_parts[1]
+        user_id = callback.from_user.id
+        
+        # Отмечаем как просмотренное
+        viewed_manager.mark_as_viewed(ad_id, callback.message.message_id, user_id)
+        stats_manager.increment_viewed()
+        
+        await callback.answer("✅ Объявление отмечено как прочитанное!")
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки mark_read callback: {e}")
+        await callback.answer("❌ Произошла ошибка", show_alert=True)
+
+@dp.callback_query(F.data.startswith("vi:"))  # viewed_info
 async def handle_viewed_info_callback(callback: CallbackQuery):
     """Информация о просмотренном объявлении"""
     try:
@@ -641,7 +761,7 @@ async def handle_viewed_info_callback(callback: CallbackQuery):
         logger.error(f"Ошибка обработки viewed_info callback: {e}")
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
-@dp.callback_query(F.data.startswith("resend:"))
+@dp.callback_query(F.data.startswith("rs:"))  # resend
 async def handle_resend_callback(callback: CallbackQuery):
     """Обработка нажатия кнопки повторной отправки"""
     try:
@@ -678,7 +798,7 @@ async def handle_resend_callback(callback: CallbackQuery):
         logger.error(f"Ошибка обработки callback: {e}")
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
-@dp.callback_query(F.data == "stats_info")
+@dp.callback_query(F.data == "si")  # stats_info
 async def handle_stats_callback(callback: CallbackQuery):
     """Обработка нажатия кнопки статистики"""
     try:
@@ -720,7 +840,7 @@ async def parse_and_send_olx_ads():
     
     while True:
         try:
-            async with OLXParser() as parser:
+            async with OLXAPI() as parser:
                 logger.info("🔍 Поиск новых объявлений...")
                 new_ads = await parser.get_new_ads()
                 
@@ -733,7 +853,7 @@ async def parse_and_send_olx_ads():
                         await asyncio.sleep(PARSE_INTERVAL)
                         continue
                     
-                    max_to_send = min(len(new_ads), remaining, 20)
+                    max_to_send = min(len(new_ads), remaining, 10)  # Уменьшили до 10 за раз
                     if len(new_ads) > max_to_send:
                         logger.info(f"⚠️ Ограничиваем до {max_to_send} объявлений за раз")
                         new_ads = new_ads[:max_to_send]
@@ -851,7 +971,7 @@ async def cmd_test(message: types.Message):
     await message.answer("🔍 Запускаю тестовый парсинг OLX...")
     
     try:
-        async with OLXParser() as parser:
+        async with OLXAPI() as parser:
             new_ads = await parser.get_new_ads()
             if new_ads:
                 await message.answer(f"✅ Найдено {len(new_ads)} новых объявлений")
@@ -897,8 +1017,9 @@ async def main():
     print(f"⏱️ Задержка между сообщениями: {MESSAGE_DELAY} секунд")
     print(f"📊 Дневной лимит: {DAILY_LIMIT} сообщений")
     print(f"👤 Отправка пользователю: {YOUR_USER_ID}")
-    print("\nℹ️ ОДНА КНОПКА: '📱 Открыть объявление' → '✅ Прочитано' (при нажатии)")
-    print("⚠️ Важно: Используются короткие callback данные для избежания ошибок")
+    print("\nℹ️ УЛУЧШЕННЫЙ ПАРСИНГ: Ротация User-Agent, обработка 403 ошибок")
+    print("ℹ️ КОРОТКИЕ CALLBACK: oa - открыть, vi - информация, rs - повтор, si - статистика")
+    print("⚠️ Важно: Используются улучшенные методы обхода блокировок")
     
     # Запускаем фоновую задачу парсинга
     asyncio.create_task(parse_and_send_olx_ads())
