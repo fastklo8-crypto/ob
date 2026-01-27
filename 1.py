@@ -302,61 +302,71 @@ def get_random_headers():
     }
 
 # ========== ПАРСЕР OLX ==========
-import requests
+import cloudscraper
+from fake_useragent import UserAgent
 
 class OLXAPI:
     def __init__(self):
-        self.api_key = "427b6a7738b14c53ae53c5361fac8aab"  # Получите на scrapingant.com, scraperapi.com и т.д.
-    
-    async def fetch_with_api(self, url: str):
-        """Используем API для обхода блокировок"""
-        # ScrapingAnt API (бесплатный тариф)
-        api_url = f"https://api.scrapingant.com/v2/general"
-        params = {
-            'url': url,
-            'x-api-key': self.api_key,
-            'browser': 'false',
-            'proxy_country': 'UA'  # Украина
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, params=params) as response:
-                return await response.text()
+        self.scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'mobile': False
+            }
+        )
+        self.ua = UserAgent()
     
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession(headers=get_random_headers())
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
+        pass
     
     async def fetch_page(self, url: str, params: dict = None) -> str:
-        """Получаем HTML страницу с обработкой ошибок"""
+        """Получаем HTML страницу с использованием cloudscraper"""
         try:
-            # Добавляем случайную задержку перед запросом
-            await asyncio.sleep(random.uniform(1, 3))
+            # Добавляем случайную задержку
+            await asyncio.sleep(random.uniform(2, 4))
             
-            async with self.session.get(url, params=params, timeout=15) as response:
-                if response.status == 403:
-                    logger.error(f"Доступ запрещен (403). Пробуем другие заголовки...")
-                    # Пробуем с другими заголовками
-                    new_headers = get_random_headers()
-                    self.session.headers.update(new_headers)
-                    
-                    async with self.session.get(url, params=params, timeout=15) as retry_response:
-                        retry_response.raise_for_status()
-                        return await retry_response.text()
-                else:
-                    response.raise_for_status()
-                    return await response.text()
-        except aiohttp.ClientError as e:
-            logger.error(f"Ошибка сети при запросе {url}: {e}")
-        except asyncio.TimeoutError:
-            logger.error(f"Таймаут при запросе {url}")
+            # Формируем полный URL с параметрами
+            full_url = url
+            if params:
+                import urllib.parse
+                full_url = f"{url}?{urllib.parse.urlencode(params)}"
+            
+            # Используем cloudscraper для обхода Cloudflare
+            headers = {
+                'User-Agent': self.ua.random,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+                'DNT': '1',
+                'Referer': 'https://www.olx.ua/',
+            }
+            
+            # Используем asyncio.to_thread для запуска синхронного cloudscraper
+            loop = asyncio.get_event_loop()
+            html = await loop.run_in_executor(
+                None,
+                lambda: self.scraper.get(
+                    full_url,
+                    headers=headers,
+                    timeout=30
+                ).text
+            )
+            
+            return html
+            
         except Exception as e:
-            logger.error(f"Неизвестная ошибка при запросе {url}: {e}")
-        return ""
+            logger.error(f"Ошибка при запросе {url}: {e}")
+            return ""
     
     def parse_ads_from_html(self, html: str) -> list:
         """Парсим список объявлений из HTML"""
@@ -372,10 +382,14 @@ class OLXAPI:
             
             # Если не нашли, пробуем другие селекторы
             if not ad_cards:
-                ad_cards = soup.find_all('div', class_=re.compile(r'css-.*'))
+                ad_cards = soup.find_all('div', class_=re.compile(r'css-'))
+            
+            if not ad_cards:
+                ad_cards = soup.find_all('div', class_=re.compile(r'offer-wrapper'))
             
             for card in ad_cards:
                 try:
+                    # Ищем ссылку
                     link_tag = card.find('a', href=True)
                     if not link_tag:
                         continue
@@ -389,22 +403,26 @@ class OLXAPI:
                     if '/obyavlenie/' in link:
                         parts = link.split('/obyavlenie/')[-1]
                         if '-ID' in parts.upper():
-                            ad_id = parts.split('-ID')[-1].replace('.html', '').strip()
+                            ad_id = parts.split('-ID')[-1].split('.')[0].strip()
                         else:
-                            ad_id = parts.split('-')[-1].replace('.html', '').strip()
-                    else:
-                        ad_id = link.split('/')[-1].replace('.html', '').strip()
+                            ad_id = parts.split('-')[-1].split('.')[0].strip()
                     
                     if not ad_id or len(ad_id) < 3:
-                        continue
+                        # Пробуем извлечь из URL другим способом
+                        match = re.search(r'ID([A-Z0-9]+)', link.upper())
+                        if match:
+                            ad_id = match.group(1)
+                        else:
+                            continue
                     
                     # Извлекаем заголовок
                     title = "Объявление с OLX"
-                    title_tag = card.find('h6') or card.find('div', class_=re.compile(r'title'))
+                    title_tag = card.find('h6') or card.find('strong') or card.find('span', class_=re.compile(r'title'))
                     if title_tag:
                         title = title_tag.text.strip()
                     
                     title = re.sub(r'\s+', ' ', title).strip()
+                    title = title[:100]  # Обрезаем слишком длинные заголовки
                     
                     # Сохраняем ссылку в кэш
                     ad_links_cache[ad_id] = link
@@ -427,10 +445,26 @@ class OLXAPI:
     async def get_new_ads(self) -> list:
         """Получаем новые объявления"""
         logger.info(f"Запрос к OLX: {SEARCH_URL} с параметрами {PARAMS}")
-        html = await self.fetch_page(SEARCH_URL, params=PARAMS)
         
-        if not html:
-            logger.error("Не удалось получить HTML страницу")
+        # Пробуем несколько вариантов URL
+        urls_to_try = [
+            SEARCH_URL,
+            "https://www.olx.ua/uk/list/",  # Альтернативный URL
+            "https://www.olx.ua/d/uk/"  # Еще один вариант
+        ]
+        
+        html = ""
+        for url in urls_to_try:
+            html = await self.fetch_page(url, params=PARAMS)
+            
+            if html and len(html) > 1000:  # Проверяем, что получили адекватный HTML
+                logger.info(f"Успешно получили данные с {url}")
+                break
+            else:
+                logger.warning(f"Не удалось получить данные с {url}, пробуем следующий...")
+        
+        if not html or len(html) < 1000:
+            logger.error("Не удалось получить HTML страницу со всех URL")
             return []
         
         all_ads = self.parse_ads_from_html(html)

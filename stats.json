@@ -1,16 +1,106 @@
 {
   "daily": {
     "date": "2026-01-28",
-    "sent": 301,
+    "sent": 311,
     "failed": 0,
     "resent": 0,
-    "viewed": 285
+    "viewed": 295
   },
-  "total_sent": 1068,
+  "total_sent": 1078,
   "total_failed": 3,
   "total_resent": 0,
-  "total_viewed": 1024,
+  "total_viewed": 1034,
   "last_ads": [
+    {
+      "ad_id": "WXTpg",
+      "message_id": 2115,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/boksova-windows-11-professional-usb-box-orignal-ltsenzya-korobka-IDWXTpg.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:09:08.644470",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "YVj9L",
+      "message_id": 2113,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/repetitor-anglysko-movi-IDYVj9L.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:09:06.479184",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "ZMb9o",
+      "message_id": 2112,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/dbzh-dzherelo-bezperebynogo-zhivlennya-powercom-IDZMb9o.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:09:04.321746",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "Y6fqT",
+      "message_id": 2111,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/zhenskie-krossovki-reebok-original-4227-5-IDY6fqT.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:09:02.162868",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "MU2UP",
+      "message_id": 2110,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/nibler-i-setochki-nabor-novyh-canpol-babis-IDMU2UP.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:08:59.992840",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "ZMbaj",
+      "message_id": 2109,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/smart-baby-watch-q529-z-gps-IDZMbaj.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:08:57.833736",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "ZBHZT",
+      "message_id": 2108,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/dublyanka-lane-giovanni-IDZBHZT.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:08:55.676342",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "ZMbbM",
+      "message_id": 2107,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/led-avto-lampi-kaixen-red-line-9005-hb3-h10-IDZMbbM.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:08:53.518881",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "ZMbcf",
+      "message_id": 2106,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/krosvki-zhnoch-hugo-orignal-IDZMbcf.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:08:51.371393",
+      "resent_count": 0
+    },
+    {
+      "ad_id": "XigNs",
+      "message_id": 2105,
+      "user_id": 1070744113,
+      "link": "https://www.olx.ua/d/uk/obyavlenie/vnlov-rukavichki-odnorazov-rozmr-s-IDXigNs.html",
+      "title": "Объявление с OLX",
+      "sent_time": "2026-01-28 02:08:49.098094",
+      "resent_count": 0
+    },
     {
       "ad_id": "RCpyZ",
       "message_id": 2099,
@@ -99,96 +189,6 @@
       "link": "https://www.olx.ua/d/uk/obyavlenie/disk-kolsniy-r-19-mercedes-benz-167-401-0100667x21-IDWeO0J.html",
       "title": "Объявление с OLX",
       "sent_time": "2026-01-28 01:55:39.154783",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZMb8i",
-      "message_id": 2068,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/lc-waikiki-futbolka-z-vodolazkoyu-ta-dovgim-rukavom-IDZMb8i.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:55:36.965020",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "RimL6",
-      "message_id": 2067,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/metallicheskie-styazhki-homuty-apro-IDRimL6.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:55:34.834235",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZrmgT",
-      "message_id": 2066,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/operativna-pamyat-8-gb-ddr4-postyna-pamyat-256-gb-ssd-IDZrmgT.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:55:32.681095",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZMb9f",
-      "message_id": 2065,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/komplekt-intel-i7-3770k-asus-p8z77-v-lx-8gb-ddr3-kingston-hyperx-IDZMb9f.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:55:30.529536",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "Yrtw5",
-      "message_id": 2064,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/pri-vdsutnost-svtla-pratsyu-lft-voda-desnyanskiy-trosch-IDYrtw5.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:55:28.279990",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "X8uD6",
-      "message_id": 2063,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/chehya-nderlandi-belgya-nmechchina-shveytsarya-daniya-shvetsiya-litva-lafet-IDX8uD6.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:55:26.115505",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "TH0T1",
-      "message_id": 2060,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/termo-chereviki-zimov-vodonepronikn-lico-IDTH0T1.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:43:33.731011",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "XZ9Gu",
-      "message_id": 2059,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/kinder-natuns-zhivotnye-makdonalds-mashinki-igrushki-IDXZ9Gu.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:42:30.237740",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "KldWc",
-      "message_id": 2058,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/krok-w-przedsibiorczo-IDKldWc.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:42:27.993057",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "WBa5Q",
-      "message_id": 2057,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/makyazh-zachski-denniy-vechrny-svyatkoviy-veslniy-IDWBa5Q.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-28 01:42:25.728133",
       "resent_count": 0
     }
   ]
