@@ -49,7 +49,7 @@ PARSE_INTERVAL = 60  # 1 минута между проверками
 MESSAGE_DELAY = 2  # 2 секунды между отправками сообщений
 
 # Лимиты отправки
-DAILY_LIMIT = 1000  # План на день - 1000 сообщений
+DAILY_LIMIT = 5000  # План на день - 1000 сообщений
 
 # Файлы для хранения данных
 PROCESSED_ADS_FILE = "processed_ads.json"
@@ -457,13 +457,13 @@ class OLXAPI:
         for url in urls_to_try:
             html = await self.fetch_page(url, params=PARAMS)
             
-            if html and len(html) > 1000:  # Проверяем, что получили адекватный HTML
+            if html and len(html) > 5000:  # Проверяем, что получили адекватный HTML
                 logger.info(f"Успешно получили данные с {url}")
                 break
             else:
                 logger.warning(f"Не удалось получить данные с {url}, пробуем следующий...")
         
-        if not html or len(html) < 1000:
+        if not html or len(html) < 5000:
             logger.error("Не удалось получить HTML страницу со всех URL")
             return []
         
