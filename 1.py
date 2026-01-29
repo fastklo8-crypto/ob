@@ -496,7 +496,7 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
         builder.row(
             InlineKeyboardButton(
                 text="✅ Прочитано",
-                callback_data=f"vi:{ad_id}:{message_id}"  # Еще короче
+                callback_data=f"vi:{ad_id}:{message_id}"
             )
         )
     else:
@@ -504,17 +504,11 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
         builder.row(
             InlineKeyboardButton(
                 text="📱 Открыть объявление",
-                callback_data=f"oa:{ad_id}:{message_id}"  # Еще короче
+                callback_data=f"oa:{ad_id}:{message_id}"
             )
         )
     
-    # Кнопка "Повторить отправку"
-    builder.row(
-        InlineKeyboardButton(
-            text="🔄 Повторить отправку",
-            callback_data=f"rs:{message_id}"  # Еще короче
-        )
-    )
+    # Убрана кнопка "Повторить отправку"
     
     # Добавляем статистику
     remaining = stats_manager.get_remaining_daily()
@@ -523,7 +517,7 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
     builder.row(
         InlineKeyboardButton(
             text=f"📊 {sent_today}/{DAILY_LIMIT}",
-            callback_data="si"  # Еще короче
+            callback_data="si"
         )
     )
     
@@ -637,7 +631,7 @@ async def send_ad_simple(ad: dict, user_id: int) -> bool:
         builder.row(
             InlineKeyboardButton(
                 text="✅ Отметить как прочитанное",
-                callback_data=f"mr:{ad['id']}"  # Короткий callback
+                callback_data=f"mr:{ad['id']}"
             )
         )
         
@@ -698,7 +692,7 @@ async def resend_ad_to_user(ad_info: dict, user_id: int) -> bool:
 # ========== ОБРАБОТЧИКИ CALLBACK ==========
 @dp.callback_query(F.data.startswith("oa:"))  # open_ad
 async def handle_open_ad_callback(callback: CallbackQuery):
-    """Обработчик для кнопки "Открыть объявление" - открывает ссылку и меняет кнопку"""
+    """Обработчик для кнопки "Открыть объявление" - меняет только кнопку"""
     try:
         data_parts = callback.data.split(":")
         if len(data_parts) < 3:
@@ -708,16 +702,6 @@ async def handle_open_ad_callback(callback: CallbackQuery):
         ad_id = data_parts[1]
         message_id = int(data_parts[2])
         user_id = callback.from_user.id
-        
-        # Получаем ссылку из кэша или из истории
-        ad_link = ad_links_cache.get(ad_id)
-        if not ad_link:
-            # Ищем в истории отправленных
-            ad_info = stats_manager.get_ad_by_id(ad_id, user_id)
-            if ad_info:
-                ad_link = ad_info['link']
-            else:
-                ad_link = f"{OLX_BASE_URL}/d/uk/obyavlenie/ID{ad_id}.html"
         
         # Отмечаем объявление как просмотренное
         viewed_manager.mark_as_viewed(ad_id, message_id, user_id)
@@ -735,14 +719,8 @@ async def handle_open_ad_callback(callback: CallbackQuery):
         except Exception as e:
             logger.error(f"Ошибка при обновлении клавиатуры: {e}")
         
-        # Отправляем пользователю ссылку
-        await callback.answer("✅ Открываю объявление...")
-        
-        # Отправляем сообщение со ссылкой
-        await callback.message.answer(
-            f"🔗 Вот ссылка на объявление:\n{ad_link}",
-            disable_web_page_preview=False
-        )
+        # ТОЛЬКО уведомление, без отправки сообщения со ссылкой
+        await callback.answer("✅ Объявление отмечено как прочитанное!", show_alert=False)
         
     except Exception as e:
         logger.error(f"Ошибка обработки open_ad callback: {e}")
@@ -786,7 +764,6 @@ async def handle_viewed_info_callback(callback: CallbackQuery):
             f"🆔 ID объявления: {ad_id}\n"
             f"✅ Статус: Прочитано\n"
             f"👤 Вы отметили это объявление как прочитанное\n"
-            f"⏰ Можно повторно отправить кнопкой ниже"
         )
         
         await callback.answer(info_text, show_alert=True)
@@ -795,42 +772,7 @@ async def handle_viewed_info_callback(callback: CallbackQuery):
         logger.error(f"Ошибка обработки viewed_info callback: {e}")
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
-@dp.callback_query(F.data.startswith("rs:"))  # resend
-async def handle_resend_callback(callback: CallbackQuery):
-    """Обработка нажатия кнопки повторной отправки"""
-    try:
-        data_parts = callback.data.split(":")
-        if len(data_parts) < 2:
-            await callback.answer("❌ Ошибка данных", show_alert=True)
-            return
-        
-        message_id = int(data_parts[1])
-        user_id = callback.from_user.id
-        
-        # Находим объявление в истории
-        ad_info = stats_manager.get_ad_by_message_id(message_id, user_id)
-        
-        if not ad_info:
-            await callback.answer("❌ Объявление не найдено", show_alert=True)
-            return
-        
-        remaining = stats_manager.get_remaining_daily()
-        if remaining <= 0:
-            await callback.answer(f"⚠️ Достигнут дневной лимит ({DAILY_LIMIT} сообщений)", show_alert=True)
-            return
-        
-        await callback.answer("🔄 Отправляю объявление...")
-        
-        success = await resend_ad_to_user(ad_info, user_id)
-        
-        if success:
-            await callback.answer(f"✅ Объявление отправлено!")
-        else:
-            await callback.answer("❌ Не удалось отправить объявление", show_alert=True)
-            
-    except Exception as e:
-        logger.error(f"Ошибка обработки callback: {e}")
-        await callback.answer("❌ Произошла ошибка", show_alert=True)
+# Убрана функция handle_resend_callback, так как кнопка удалена
 
 @dp.callback_query(F.data == "si")  # stats_info
 async def handle_stats_callback(callback: CallbackQuery):
@@ -887,9 +829,10 @@ async def parse_and_send_olx_ads():
                         await asyncio.sleep(PARSE_INTERVAL)
                         continue
                     
-                    max_to_send = min(len(new_ads), remaining, 10)  # Уменьшили до 10 за раз
+                    # УБРАНО ОГРАНИЧЕНИЕ 10 ЗА РАЗ
+                    max_to_send = min(len(new_ads), remaining)  # Отправляем все, но не больше лимита
                     if len(new_ads) > max_to_send:
-                        logger.info(f"⚠️ Ограничиваем до {max_to_send} объявлений за раз")
+                        logger.info(f"⚠️ Ограничиваем до {max_to_send} объявлений из-за дневного лимита")
                         new_ads = new_ads[:max_to_send]
                     
                     sent_count = 0
@@ -1052,7 +995,7 @@ async def main():
     print(f"📊 Дневной лимит: {DAILY_LIMIT} сообщений")
     print(f"👤 Отправка пользователю: {YOUR_USER_ID}")
     print("\nℹ️ УЛУЧШЕННЫЙ ПАРСИНГ: Ротация User-Agent, обработка 403 ошибок")
-    print("ℹ️ КОРОТКИЕ CALLBACK: oa - открыть, vi - информация, rs - повтор, si - статистика")
+    print("ℹ️ КОРОТКИЕ CALLBACK: oa - открыть, vi - информация, si - статистика")
     print("⚠️ Важно: Используются улучшенные методы обхода блокировок")
     
     # Запускаем фоновую задачу парсинга
