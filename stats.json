@@ -1,195 +1,55 @@
 {
   "daily": {
-    "date": "2026-01-29",
-    "sent": 73,
+    "date": "2026-01-31",
+    "sent": 4,
     "failed": 0,
     "resent": 0,
-    "viewed": 32
+    "viewed": 0
   },
-  "total_sent": 73,
+  "total_sent": 4,
   "total_failed": 0,
   "total_resent": 0,
-  "total_viewed": 32,
+  "total_viewed": 0,
   "last_ads": [
     {
-      "ad_id": "VRBbJ",
-      "message_id": 8226,
+      "ad_id": "Fq1DU",
+      "message_id": 14512,
       "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/trikokupalniki-htoni-IDVRBbJ.html",
+      "link": "https://www.olx.ua/d/uk/obyavlenie/disk-podushka-masazhna-balansuvalna-33sm-nasos-dlya-masazhu-balansu-IDFq1DU.html",
       "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:19:00.185448",
-      "resent_count": 0
+      "sent_time": "2026-01-31 05:36:07.763770",
+      "resent_count": 0,
+      "olx_user_id": ""
     },
     {
-      "ad_id": "ZmtdX",
-      "message_id": 8225,
+      "ad_id": "GvIX2",
+      "message_id": 14511,
       "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/kompyuter-na-zapchasti-IDZmtdX.html",
+      "link": "https://www.olx.ua/d/uk/obyavlenie/krylo-lanos-sens-novoe-lanos-IDGvIX2.html",
       "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:58.009843",
-      "resent_count": 0
+      "sent_time": "2026-01-31 05:36:05.612630",
+      "resent_count": 0,
+      "olx_user_id": ""
     },
     {
-      "ad_id": "Wsqau",
-      "message_id": 8224,
+      "ad_id": "ZG1k8",
+      "message_id": 14510,
       "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/bosonzhki-trendov-IDWsqau.html",
+      "link": "https://www.olx.ua/d/uk/obyavlenie/lowmel-ugg-krossovki-ugg-na-naturalnoy-ovchine-tor-kachestvo-IDZG1k8.html",
       "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:55.843582",
-      "resent_count": 0
+      "sent_time": "2026-01-31 05:36:03.476781",
+      "resent_count": 0,
+      "olx_user_id": ""
     },
     {
-      "ad_id": "T0cqD",
-      "message_id": 8223,
+      "ad_id": "Y492M",
+      "message_id": 14509,
       "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/kurtka-zara-demsezon-dlya-pdltka-IDT0cqD.html",
+      "link": "https://www.olx.ua/d/uk/obyavlenie/kabel-s-vhs-connektor-IDY492M.html",
       "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:53.682109",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "Xxk5R",
-      "message_id": 8222,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/kombnezon-vesna-osn-IDXxk5R.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:51.324495",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "VTPmA",
-      "message_id": 8221,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/reno-master-2t-vantazhn-perevezennya-gruzoperevozki-kvartirniy-perezd-IDVTPmA.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:49.105337",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZpTe3",
-      "message_id": 8220,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/zhenskie-krossovki-nike-air-jordan-4-retro-bolshoy-vybor-uniseks-IDZpTe3.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:46.921494",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "YkCNb",
-      "message_id": 8219,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/gazova-plita-beko-fsm62330dwt-z-duhovkoyu-yak-nova-garantya-dostavka-IDYkCNb.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:44.608576",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZeOWv",
-      "message_id": 8218,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/kostyum-vyazaniy-na-zamochku-zamku-zpka-z-dvoma-zamkami-tepliy-osnny-IDZeOWv.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:42.378723",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZsVR7",
-      "message_id": 8217,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/b-u-modem-3g-3dzhi-tp-link-wi-fi-router-tochka-dostupa-IDZsVR7.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:40.184607",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "QsFTc",
-      "message_id": 8216,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/bosonozhki-klarks-clarks-19sm-na-dvchinku-sandal-IDQsFTc.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:37.992882",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "X72ZF",
-      "message_id": 8215,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/plattya-beysik-rozmr-128-140-IDX72ZF.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:35.772079",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZKtAq",
-      "message_id": 8214,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/okulyari-chrome-hearts-ochki-hrom-harts-IDZKtAq.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:33.608986",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "Zrw6c",
-      "message_id": 8213,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/uk/obyavlenie/rabota/barista-blya-metro-lsova-IDZrw6c.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:31.406277",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "UWgMw",
-      "message_id": 8212,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/defektoskop-ultrazvukoviy-ud4-76ud2-70-IDUWgMw.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:29.038502",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZfSjj",
-      "message_id": 8211,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/christian-dior-pour-poison-parfum-30-ml-IDZfSjj.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:26.841375",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "VSxM7",
-      "message_id": 8210,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/nov-valzi-chemodani-IDVSxM7.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:24.669914",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "ZzYu4",
-      "message_id": 8209,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/galliano-vetrovka-IDZzYu4.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:22.491910",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "Zsj9d",
-      "message_id": 8208,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/z-krov-popelu-dzhenfer-a-armentraut-IDZsj9d.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:20.295009",
-      "resent_count": 0
-    },
-    {
-      "ad_id": "YTIy0",
-      "message_id": 8207,
-      "user_id": 1070744113,
-      "link": "https://www.olx.ua/d/uk/obyavlenie/pilosos-bezprovdniy-pylesos-besprovodnyy-black-deckerc-ua625bhp-IDYTIy0.html",
-      "title": "Объявление с OLX",
-      "sent_time": "2026-01-29 18:18:18.038494",
-      "resent_count": 0
+      "sent_time": "2026-01-31 05:35:55.318228",
+      "resent_count": 0,
+      "olx_user_id": ""
     }
   ]
 }

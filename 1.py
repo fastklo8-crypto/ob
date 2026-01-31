@@ -31,6 +31,7 @@ class CloudFlareParser:
             lambda: self.scraper.get(url, timeout=30)
         )
         return response.text
+
 # ========== КОНФИГУРАЦИЯ ==========
 TELEGRAM_BOT_TOKEN = "8521669515:AAFMhXlWv_clmqvqN2VrNgXtU-yJdHVKwdc"
 # Ваш user ID в Telegram (узнать можно у бота @userinfobot)
@@ -65,6 +66,8 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 
+# ========== ГЛОБАЛЬНЫЕ ФЛАГИ ==========
+is_sending_active = False  # Флаг активности отправки сообщений
 # ========== ХРАНИЛИЩЕ ДАННЫХ ==========
 class Storage:
     def __init__(self, filename: str):
@@ -98,6 +101,107 @@ class Storage:
     def is_processed(self, ad_id: str) -> bool:
         """Проверяем, было ли объявление обработано"""
         return ad_id in self.processed_ads
+# ========== ДОБАВЛЯЕМ В НАЧАЛО ФАЙЛА ПЕРЕД Storage КЛАССОМ ==========
+
+# Менеджер для отслеживания пользователей OLX (продавцов)
+class OlxUserManager:
+    def __init__(self, filename: str = "olx_users.json"):
+        self.filename = filename
+        self.olx_users = self._load_olx_users()
+    
+    def _load_olx_users(self) -> dict:
+        """Загружаем пользователей OLX из файла"""
+        if os.path.exists(self.filename):
+            try:
+                with open(self.filename, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Ошибка загрузки пользователей OLX: {e}")
+        return {}
+    
+    def save_olx_users(self):
+        """Сохраняем пользователей OLX в файл"""
+        try:
+            with open(self.filename, 'w', encoding='utf-8') as f:
+                json.dump(self.olx_users, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Ошибка сохранения пользователей OLX: {e}")
+    
+    def add_olx_user(self, user_id: str, ad_id: str):
+        """Добавляем пользователя OLX с его объявлением"""
+        if user_id not in self.olx_users:
+            self.olx_users[user_id] = {
+                'first_ad_id': ad_id,
+                'first_ad_time': str(datetime.now()),
+                'last_seen': str(datetime.now()),
+                'ad_count': 1,
+                'sent_ads': [ad_id]
+            }
+        else:
+            self.olx_users[user_id]['last_seen'] = str(datetime.now())
+            self.olx_users[user_id]['ad_count'] += 1
+            
+        self.save_olx_users()
+    
+    def has_sent_ad_for_user(self, user_id: str, ad_id: str) -> bool:
+        """Проверяем, отправляли ли мы уже объявление от этого пользователя"""
+        if user_id in self.olx_users:
+            # Проверяем, отправляли ли мы это конкретное объявление
+            if ad_id in self.olx_users[user_id]['sent_ads']:
+                return True
+        return False
+    
+    def can_send_ad_for_user(self, user_id: str) -> bool:
+        """Можно ли отправлять объявление от этого пользователя"""
+        # Если это новый пользователь - можно отправлять
+        if user_id not in self.olx_users:
+            return True
+        
+        # Проверяем, есть ли у пользователя уже отправленные объявления
+        user_data = self.olx_users[user_id]
+        
+        # Если у пользователя есть только первое объявление (ad_count = 1)
+        # И это объявление еще не отправлялось конкретно этому пользователю Telegram
+        if user_data['ad_count'] == 1:
+            # Проверяем, не отправляли ли мы уже это объявление
+            return not self.has_sent_ad_for_user(user_id, user_data.get('first_ad_id', ''))
+        
+        # Для пользователей с несколькими объявлениями используем другую логику
+        # Например, отправляем только если не отправляли в последние 24 часа
+        last_seen_str = user_data.get('last_seen', '')
+        if last_seen_str:
+            try:
+                last_seen = datetime.fromisoformat(last_seen_str)
+                time_diff = datetime.now() - last_seen
+                # Если с последней отправки прошло больше 24 часов - можно отправлять снова
+                if time_diff.total_seconds() > 8640000000:  # 24 часа
+                    return True
+            except:
+                pass
+        
+        return False
+    
+    def mark_ad_sent_for_user(self, user_id: str, ad_id: str):
+        """Отмечаем, что объявление от пользователя отправлено"""
+        if user_id in self.olx_users:
+            if ad_id not in self.olx_users[user_id]['sent_ads']:
+                self.olx_users[user_id]['sent_ads'].append(ad_id)
+        else:
+            self.olx_users[user_id] = {
+                'first_ad_id': ad_id,
+                'first_ad_time': str(datetime.now()),
+                'last_seen': str(datetime.now()),
+                'ad_count': 1,
+                'sent_ads': [ad_id]
+            }
+        
+        self.save_olx_users()
+    
+    def get_user_stats(self, user_id: str) -> dict:
+        """Получаем статистику по пользователю OLX"""
+        if user_id in self.olx_users:
+            return self.olx_users[user_id]
+        return {}
 
 # ========== МЕНЕДЖЕР ПРОСМОТРЕННЫХ ОБЪЯВЛЕНИЙ ==========
 class ViewedAdsManager:
@@ -234,7 +338,7 @@ class StatsManager:
         remaining = max(0, DAILY_LIMIT - sent_today)
         return remaining
     
-    def add_sent_ad(self, ad_id: str, message_id: int, user_id: int, link: str, title: str):
+    def add_sent_ad(self, ad_id: str, message_id: int, user_id: int, link: str, title: str, olx_user_id: str = ""):
         """Добавляем отправленное объявление в историю"""
         ad_info = {
             'ad_id': ad_id,
@@ -243,7 +347,8 @@ class StatsManager:
             'link': link,
             'title': title,
             'sent_time': str(datetime.now()),
-            'resent_count': 0
+            'resent_count': 0,
+            'olx_user_id': olx_user_id  
         }
         
         self.stats['last_ads'].insert(0, ad_info)
@@ -304,6 +409,9 @@ def get_random_headers():
 # ========== ПАРСЕР OLX ==========
 import cloudscraper
 from fake_useragent import UserAgent
+olx_user_manager = OlxUserManager()
+
+# ========== МОДИФИЦИРУЕМ КЛАСС OLXAPI ==========
 
 class OLXAPI:
     def __init__(self):
@@ -427,10 +535,22 @@ class OLXAPI:
                     # Сохраняем ссылку в кэш
                     ad_links_cache[ad_id] = link
                     
+                    # Инициализируем olx_user_id как пустую строку
+                    olx_user_id = ""
+                    
+                    # Пробуем найти ссылку на пользователя в карточке
+                    user_tag = card.find('a', href=re.compile(r'/list/user/'))
+                    if user_tag and 'href' in user_tag.attrs:
+                        href = user_tag['href']
+                        match = re.search(r'/list/user/([^/?#]+)', href)
+                        if match:
+                            olx_user_id = match.group(1)
+                    
                     ads.append({
                         'id': ad_id,
                         'title': title,
                         'link': link,
+                        'olx_user_id': olx_user_id  # Добавляем поле, даже если пустое
                     })
                     
                 except Exception as e:
@@ -443,21 +563,21 @@ class OLXAPI:
         return ads
     
     async def get_new_ads(self) -> list:
-        """Получаем новые объявления"""
+        """Получаем новые объявления с фильтрацией по пользователям"""
         logger.info(f"Запрос к OLX: {SEARCH_URL} с параметрами {PARAMS}")
         
         # Пробуем несколько вариантов URL
         urls_to_try = [
             SEARCH_URL,
-            "https://www.olx.ua/uk/list/",  # Альтернативный URL
-            "https://www.olx.ua/d/uk/"  # Еще один вариант
+            "https://www.olx.ua/uk/list/",
+            "https://www.olx.ua/d/uk/"
         ]
         
         html = ""
         for url in urls_to_try:
             html = await self.fetch_page(url, params=PARAMS)
             
-            if html and len(html) > 5000:  # Проверяем, что получили адекватный HTML
+            if html and len(html) > 5000:
                 logger.info(f"Успешно получили данные с {url}")
                 break
             else:
@@ -473,17 +593,101 @@ class OLXAPI:
         logger.info(f"На странице найдено {len(all_ads)} объявлений")
         
         for ad in all_ads:
-            if not storage.is_processed(ad['id']):
-                new_ads.append(ad)
-                storage.add_processed_ad(ad['id'])
+            # Проверяем, было ли объявление уже обработано
+            if storage.is_processed(ad['id']):
+                continue
+            
+            # Если у объявления нет ID пользователя OLX в карточке,
+            # парсим страницу объявления для получения ID пользователя
+            if not ad.get('olx_user_id'):  # Используем get() для безопасного доступа
+                try:
+                    ad_details = await self.fetch_ad_details(ad['link'])
+                    if ad_details.get('olx_user_id'):
+                        ad['olx_user_id'] = ad_details['olx_user_id']
+                        logger.info(f"Найден ID пользователя OLX для объявления {ad['id']}: {ad['olx_user_id']}")
+                except Exception as e:
+                    logger.warning(f"Не удалось получить ID пользователя для объявления {ad['id']}: {e}")
+            
+            # Проверяем, можно ли отправлять объявление от этого пользователя
+            if ad.get('olx_user_id'):  # Используем get() для безопасного доступа
+                # Если уже отправляли объявление от этого пользователя - пропускаем
+                if not olx_user_manager.can_send_ad_for_user(ad['olx_user_id']):
+                    logger.info(f"Пропускаем объявление {ad['id']} от пользователя {ad['olx_user_id']} - уже отправляли")
+                    
+                    # Но все равно помечаем как обработанное, чтобы не парсить снова
+                    storage.add_processed_ad(ad['id'])
+                    continue
+            
+            # Добавляем объявление в список для отправки
+            new_ads.append(ad)
+            storage.add_processed_ad(ad['id'])
+            
+            # Если у объявления есть ID пользователя, отмечаем что от этого пользователя будем отправлять
+            if ad.get('olx_user_id'):  # Используем get() для безопасного доступа
+                olx_user_manager.add_olx_user(ad['olx_user_id'], ad['id'])
         
         if new_ads:
             storage.save_processed_ads()
             logger.info(f"Добавлено {len(new_ads)} новых объявлений в обработку")
         
         return new_ads
+    
+    async def fetch_ad_details(self, url: str) -> dict:
+        """Получаем детальную информацию об объявлении"""
+        try:
+            html = await self.fetch_page(url)
+            if not html:
+                return {}
+            
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Извлекаем ID пользователя OLX
+            olx_user_id = ""
+            
+            # Пробуем разные способы извлечения ID пользователя
+            # 1. Ищем ссылку на профиль пользователя
+            user_link = soup.find('a', href=re.compile(r'/list/user/'))
+            if user_link and 'href' in user_link.attrs:
+                href = user_link['href']
+                match = re.search(r'/list/user/([^/?#]+)', href)
+                if match:
+                    olx_user_id = match.group(1)
+            
+            # 2. Ищем в данных объявления
+            if not olx_user_id:
+                script_tags = soup.find_all('script')
+                for script in script_tags:
+                    if script.string:
+                        # Ищем в JSON данных
+                        matches = re.findall(r'"user_id"\s*:\s*"([^"]+)"', script.string)
+                        if matches:
+                            olx_user_id = matches[0]
+                            break
+                        
+                        matches = re.findall(r'"sellerId"\s*:\s*"([^"]+)"', script.string)
+                        if matches:
+                            olx_user_id = matches[0]
+                            break
+            
+            # 3. Ищем в meta-тегах
+            if not olx_user_id:
+                meta_tags = soup.find_all('meta')
+                for meta in meta_tags:
+                    if 'property' in meta.attrs and 'content' in meta.attrs:
+                        if 'user_id' in meta.attrs.get('property', '').lower():
+                            olx_user_id = meta.attrs['content']
+                            break
+            
+            return {
+                'olx_user_id': olx_user_id,
+                'url': url
+            }
+            
+        except Exception as e:
+            logger.error(f"Ошибка при получении деталей объявления {url}: {e}")
+            return {}
+        
 
-# ========== КЛАВИАТУРЫ ==========
 def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeyboardMarkup:
     """Создаем клавиатуру для объявления - ОДНА КНОПКА, которая меняется"""
     builder = InlineKeyboardBuilder()
@@ -508,8 +712,6 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
             )
         )
     
-    # Убрана кнопка "Повторить отправку"
-    
     # Добавляем статистику
     remaining = stats_manager.get_remaining_daily()
     sent_today = stats_manager.get_daily_stats()['sent']
@@ -523,9 +725,10 @@ def create_ad_keyboard(ad_id: str, message_id: int, user_id: int) -> InlineKeybo
     
     return builder.as_markup()
 
+
 # ========== ОТПРАВКА ОБЪЯВЛЕНИЙ В ЛИЧКУ ==========
 async def send_ad_to_user(ad: dict, user_id: int, retry_count: int = 3) -> bool:
-    """Отправляем ссылку на объявление в личные сообщения"""
+    """Отправляем ссылку на объявление в личные сообщения с фильтрацией по пользователям OLX"""
     for attempt in range(retry_count):
         try:
             # Проверяем дневной лимит
@@ -534,10 +737,23 @@ async def send_ad_to_user(ad: dict, user_id: int, retry_count: int = 3) -> bool:
                 logger.warning(f"⚠️ Достигнут дневной лимит ({DAILY_LIMIT} сообщений)")
                 return False
             
-            # Форматируем сообщение
-            message_text = f"{ad['link']}"
+            # Проверяем, можно ли отправлять от этого пользователя OLX
+            if ad.get('olx_user_id'):
+                if not olx_user_manager.can_send_ad_for_user(ad['olx_user_id']):
+                    logger.info(f"⚠️ Пропускаем объявление {ad['id']} - уже отправляли от пользователя {ad['olx_user_id']}")
+                    return False
             
-            # Создаем клавиатуру
+            # Форматируем сообщение с информацией о пользователе OLX
+            if ad.get('olx_user_id'):
+                message_text = (
+                    f"{ad['link']}\n\n"
+                    f"👤 Продавец OLX: {ad['olx_user_id']}\n"
+                    f"📝 {ad['title']}"
+                )
+            else:
+                message_text = f"{ad['link']}\n\n📝 {ad['title']}"
+            
+            # Создаем клавиатуру с правильным message_id (пока 0, потом обновим)
             keyboard = create_ad_keyboard(ad['id'], 0, user_id)
             
             # Отправляем сообщение в личные сообщения
@@ -569,8 +785,14 @@ async def send_ad_to_user(ad: dict, user_id: int, retry_count: int = 3) -> bool:
                 message_id=sent_message.message_id,
                 user_id=user_id,
                 link=ad['link'],
-                title=ad['title']
+                title=ad['title'],
+                olx_user_id=ad.get('olx_user_id', '')
             )
+            
+            # Если у объявления есть ID пользователя OLX, отмечаем что отправили
+            if ad.get('olx_user_id'):
+                olx_user_manager.mark_ad_sent_for_user(ad['olx_user_id'], ad['id'])
+                logger.info(f"📝 Отметили объявление от пользователя OLX: {ad['olx_user_id']}")
             
             return True
             
@@ -589,7 +811,7 @@ async def send_ad_to_user(ad: dict, user_id: int, retry_count: int = 3) -> bool:
                 continue
             elif "BUTTON_DATA_INVALID" in error_msg:
                 logger.error(f"❌ Ошибка в данных кнопки. Пробуем упрощенную версию...")
-                # Пробуем отправить без клавиатуры
+                # Пробуем отправить без сложной клавиатуры
                 try:
                     return await send_ad_simple(ad, user_id)
                 except Exception as e2:
@@ -597,6 +819,12 @@ async def send_ad_to_user(ad: dict, user_id: int, retry_count: int = 3) -> bool:
                     if attempt < retry_count - 1:
                         await asyncio.sleep(2)
                     continue
+            elif "Forbidden: bot was blocked by the user" in error_msg:
+                logger.error(f"❌ Бот заблокирован пользователем {user_id}")
+                return False
+            elif "chat not found" in error_msg.lower():
+                logger.error(f"❌ Чат не найден или пользователь не начал диалог с ботом: {user_id}")
+                return False
             else:
                 logger.error(f"❌ Ошибка отправки объявления {ad['id']} (попытка {attempt + 1}/{retry_count}): {e}")
                 if attempt < retry_count - 1:
@@ -604,6 +832,12 @@ async def send_ad_to_user(ad: dict, user_id: int, retry_count: int = 3) -> bool:
     
     stats_manager.increment_failed()
     logger.error(f"❌ Не удалось отправить объявление {ad['id']} после {retry_count} попыток")
+    
+    # Даже если не удалось отправить, но ID пользователя есть - отмечаем
+    if ad.get('olx_user_id'):
+        olx_user_manager.mark_ad_sent_for_user(ad['olx_user_id'], ad['id'])
+        logger.info(f"📝 Объявление не отправлено, но пользователь OLX отмечен: {ad['olx_user_id']}")
+    
     return False
 
 async def send_ad_simple(ad: dict, user_id: int) -> bool:
@@ -614,7 +848,15 @@ async def send_ad_simple(ad: dict, user_id: int) -> bool:
         if remaining <= 0:
             return False
         
-        message_text = f"{ad['link']}"
+        # Форматируем сообщение с информацией о пользователе OLX
+        if ad.get('olx_user_id'):
+            message_text = (
+                f"{ad['link']}\n\n"
+                f"👤 Продавец OLX: {ad['olx_user_id']}\n"
+                f"📝 {ad['title']}"
+            )
+        else:
+            message_text = f"{ad['link']}\n\n📝 {ad['title']}"
         
         # Простая клавиатура с URL кнопкой
         builder = InlineKeyboardBuilder()
@@ -653,43 +895,26 @@ async def send_ad_simple(ad: dict, user_id: int) -> bool:
             message_id=sent_message.message_id,
             user_id=user_id,
             link=ad['link'],
-            title=ad['title']
+            title=ad['title'],
+            olx_user_id=ad.get('olx_user_id', '')
         )
+        
+        # Если у объявления есть ID пользователя OLX, отмечаем что отправили
+        if ad.get('olx_user_id'):
+            olx_user_manager.mark_ad_sent_for_user(ad['olx_user_id'], ad['id'])
         
         return True
         
     except Exception as e:
         logger.error(f"❌ Ошибка при простой отправке: {e}")
+        
+        # Даже если не удалось отправить, но ID пользователя есть - отмечаем
+        if ad.get('olx_user_id'):
+            olx_user_manager.mark_ad_sent_for_user(ad['olx_user_id'], ad['id'])
+        
         raise
 
-async def resend_ad_to_user(ad_info: dict, user_id: int) -> bool:
-    """Повторно отправляет объявление в личные сообщения"""
-    try:
-        remaining = stats_manager.get_remaining_daily()
-        if remaining <= 0:
-            logger.warning(f"⚠️ Достигнут дневной лимит ({DAILY_LIMIT} сообщений)")
-            return False
-        
-        ad = {
-            'id': ad_info['ad_id'],
-            'title': ad_info['title'],
-            'link': ad_info['link']
-        }
-        
-        success = await send_ad_to_user(ad, user_id)
-        
-        if success:
-            stats_manager.increment_resent()
-            return True
-        else:
-            return False
-        
-    except Exception as e:
-        logger.error(f"❌ Ошибка при повторной отправке: {e}")
-        stats_manager.increment_failed()
-        return False
 
-# ========== ОБРАБОТЧИКИ CALLBACK ==========
 @dp.callback_query(F.data.startswith("oa:"))  # open_ad
 async def handle_open_ad_callback(callback: CallbackQuery):
     """Обработчик для кнопки "Открыть объявление" - меняет только кнопку"""
@@ -772,8 +997,6 @@ async def handle_viewed_info_callback(callback: CallbackQuery):
         logger.error(f"Ошибка обработки viewed_info callback: {e}")
         await callback.answer("❌ Произошла ошибка", show_alert=True)
 
-# Убрана функция handle_resend_callback, так как кнопка удалена
-
 @dp.callback_query(F.data == "si")  # stats_info
 async def handle_stats_callback(callback: CallbackQuery):
     """Обработка нажатия кнопки статистики"""
@@ -801,6 +1024,7 @@ async def handle_stats_callback(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Ошибка показа статистики: {e}")
         await callback.answer("❌ Ошибка получения статистики", show_alert=True)
+
 
 # ========== ОСНОВНОЙ ЦИКЛ ПАРСИНГА ==========
 async def parse_and_send_olx_ads():
@@ -838,7 +1062,7 @@ async def parse_and_send_olx_ads():
                     sent_count = 0
                     failed_count = 0
                     
-                    for i, ad in enumerate(new_ads, 1):
+                    for i, ad in enumerate(new_ads, 1):        
                         logger.info(f"📤 Отправка {i}/{len(new_ads)} пользователю {YOUR_USER_ID}: {ad['id']}")
                         
                         if await send_ad_to_user(ad, YOUR_USER_ID):
@@ -864,139 +1088,16 @@ async def parse_and_send_olx_ads():
             logger.error(f"⚠️ Ошибка в основном цикле парсинга: {e}")
             await asyncio.sleep(30)
 
-# ========== КОМАНДЫ БОТА ==========
-@dp.message(Command("start"))
-async def start_command(message: types.Message):
-    """Команда старт - отправка приветствия"""
-    daily_stats = stats_manager.get_daily_stats()
-    remaining = stats_manager.get_remaining_daily()
-    
-    welcome_text = (
-        f"🤖 Привет, {message.from_user.full_name}!\n\n"
-        f"Я бот для парсинга объявлений с OLX.\n"
-        f"📍 Район: Деснянский (Киев)\n"
-        f"🔄 Новые объявления будут приходить сюда.\n\n"
-        f"📈 Статистика за сегодня:\n"
-        f"✅ Отправлено: {daily_stats['sent']}/{DAILY_LIMIT}\n"
-        f"👁️ Прочитано: {daily_stats['viewed']}\n"
-        f"🔄 Осталось отправить: {remaining}\n\n"
-        f"📋 Команды:\n"
-        f"/stats - детальная статистика\n"
-        f"/test - тестовый парсинг\n"
-        f"/limit - изменить лимит\n"
-        f"/send_last - отправить последние объявления"
-    )
-    
-    await message.answer(welcome_text)
-
-@dp.message(Command("stats"))
-async def cmd_stats(message: types.Message):
-    """Детальная статистика"""
-    daily_stats = stats_manager.get_daily_stats()
-    remaining = stats_manager.get_remaining_daily()
-    total_sent = stats_manager.stats['total_sent']
-    total_viewed = stats_manager.stats['total_viewed']
-    
-    stats_text = (
-        f"📊 Статистика парсинга OLX:\n\n"
-        f"📅 Дата: {daily_stats['date']}\n"
-        f"✅ Отправлено сегодня: {daily_stats['sent']}/{DAILY_LIMIT}\n"
-        f"👁️ Прочитано сегодня: {daily_stats['viewed']}\n"
-        f"🔄 Повторно отправлено: {daily_stats['resent']}\n"
-        f"❌ Неудачных отправок: {daily_stats['failed']}\n"
-        f"📈 Осталось отправить: {remaining}\n\n"
-        f"📋 Общая статистика:\n"
-        f"✅ Всего отправлено: {total_sent}\n"
-        f"👁️ Всего прочитано: {total_viewed}\n"
-        f"📍 Район: Деснянский (ID: 5)\n"
-        f"🔄 Интервал проверки: {PARSE_INTERVAL} сек"
-    )
-    
-    await message.answer(stats_text)
-
-@dp.message(Command("send_last"))
-async def cmd_send_last(message: types.Message):
-    """Отправить последние 5 объявлений"""
-    try:
-        last_ads = stats_manager.stats['last_ads'][:5]
-        
-        if not last_ads:
-            await message.answer("📭 Пока нет отправленных объявлений")
-            return
-        
-        await message.answer(f"📋 Отправляю последние {len(last_ads)} объявлений...")
-        
-        for ad_info in last_ads:
-            ad = {
-                'id': ad_info['ad_id'],
-                'title': ad_info['title'],
-                'link': ad_info['link']
-            }
-            
-            await send_ad_to_user(ad, message.from_user.id)
-            await asyncio.sleep(1)  # Небольшая задержка между отправками
-        
-        await message.answer("✅ Все объявления отправлены!")
-        
-    except Exception as e:
-        logger.error(f"Ошибка при отправке последних объявлений: {e}")
-        await message.answer(f"❌ Ошибка: {e}")
-
-@dp.message(Command("test"))
-async def cmd_test(message: types.Message):
-    """Тестовый парсинг"""
-    await message.answer("🔍 Запускаю тестовый парсинг OLX...")
-    
-    try:
-        async with OLXAPI() as parser:
-            new_ads = await parser.get_new_ads()
-            if new_ads:
-                await message.answer(f"✅ Найдено {len(new_ads)} новых объявлений")
-                if new_ads:
-                    test_ad = new_ads[0]
-                    
-                    # Отправляем тестовое объявление
-                    success = await send_ad_to_user(test_ad, message.from_user.id)
-                    if success:
-                        await message.answer(f"✅ Тестовое объявление отправлено!\nID: {test_ad['id']}")
-                    else:
-                        await message.answer("❌ Не удалось отправить тестовое объявление")
-            else:
-                await message.answer("📭 Новых объявлений не найдено")
-    except Exception as e:
-        await message.answer(f"❌ Ошибка при тестовом парсинге: {e}")
-
-@dp.message(Command("limit"))
-async def cmd_limit(message: types.Message):
-    """Изменить дневной лимит"""
-    global DAILY_LIMIT
-    
-    if len(message.text.split()) > 1:
-        try:
-            new_limit = int(message.text.split()[1])
-            if new_limit > 0:
-                DAILY_LIMIT = new_limit
-                await message.answer(f"✅ Дневной лимит изменен на {DAILY_LIMIT} сообщений")
-            else:
-                await message.answer("❌ Лимит должен быть больше 0")
-        except ValueError:
-            await message.answer("❌ Введите число после команды: /limit 1500")
-    else:
-        await message.answer(f"📊 Текущий дневной лимит: {DAILY_LIMIT} сообщений\n"
-                           f"Использование: /limit <число>")
-
-# ========== ЗАПУСК БОТА ==========
 async def main():
-    print(f"🤖 Бот запускается...")
-    print(f"📊 Парсинг OLX с параметрами:")
+    print(f"🤖 Бот для парсинга OLX запускается...")
     print(f"📍 Район: Деснянский (ID: 5)")
     print(f"🔄 Интервал проверки: {PARSE_INTERVAL} секунд")
     print(f"⏱️ Задержка между сообщениями: {MESSAGE_DELAY} секунд")
     print(f"📊 Дневной лимит: {DAILY_LIMIT} сообщений")
     print(f"👤 Отправка пользователю: {YOUR_USER_ID}")
-    print("\nℹ️ УЛУЧШЕННЫЙ ПАРСИНГ: Ротация User-Agent, обработка 403 ошибок")
-    print("ℹ️ КОРОТКИЕ CALLBACK: oa - открыть, vi - информация, si - статистика")
-    print("⚠️ Важно: Используются улучшенные методы обхода блокировок")
+    print(f"🚦 Статус рассылки: {'Активна' if is_sending_active else 'Приостановлена'}")
+    print("\n⚠️ Используются улучшенные методы обхода блокировок")
+    print("⏳ Ожидание запуска...")
     
     # Запускаем фоновую задачу парсинга
     asyncio.create_task(parse_and_send_olx_ads())
