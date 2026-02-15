@@ -15,14 +15,31 @@ SEEN_FILE = "seen_ads.txt"
 CHECK_INTERVAL = 900
 # ==========================
 
+# Проксі (експортовані з оточення)
+PROXY = os.environ.get('PROXY', '')
+HTTP_PROXY = os.environ.get('HTTP_PROXY', PROXY)
+HTTPS_PROXY = os.environ.get('HTTPS_PROXY', PROXY)
+
 # Глобальна змінна для зберігання offset
 last_update_id = 0
+
+def get_proxies():
+    """Повертає словник проксі для requests"""
+    proxies = {}
+    if HTTP_PROXY:
+        proxies['http'] = HTTP_PROXY
+    if HTTPS_PROXY:
+        proxies['https'] = HTTPS_PROXY
+    return proxies if proxies else None
 
 def delete_webhook():
     """Видаляє webhook, щоб можна було використовувати getUpdates"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
+    proxies = get_proxies()
+    
     try:
-        response = requests.post(url)
+        print(f"🔍 Видалення webhook з проксі: {proxies if proxies else 'без проксі'}")
+        response = requests.post(url, proxies=proxies, timeout=30)
         if response.status_code == 200:
             result = response.json()
             if result.get("ok"):
@@ -32,6 +49,21 @@ def delete_webhook():
                 print(f"❌ Помилка видалення webhook: {result}")
         else:
             print(f"❌ Помилка HTTP: {response.status_code}")
+    except requests.exceptions.Timeout:
+        print("❌ Таймаут при видаленні webhook")
+    except requests.exceptions.ConnectionError as e:
+        print(f"❌ Помилка з'єднання: {e}")
+        print("   Можливо, проксі не працюють. Спробуйте без проксі...")
+        # Спробуємо без проксі
+        try:
+            response = requests.post(url, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("ok"):
+                    print("✅ Webhook успішно видалено (без проксі)")
+                    return True
+        except Exception as e2:
+            print(f"❌ І без проксі не вийшло: {e2}")
     except Exception as e:
         print(f"❌ Помилка при видаленні webhook: {e}")
     return False
@@ -39,6 +71,7 @@ def delete_webhook():
 def send_telegram_message(text, reply_markup=None):
     """Надсилає повідомлення в Telegram"""
     chat_ids = [chat_id.strip() for chat_id in TELEGRAM_CHAT_ID.split(",")]
+    proxies = get_proxies()
     
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     
@@ -58,7 +91,7 @@ def send_telegram_message(text, reply_markup=None):
             print(f"Відправляємо повідомлення з кнопкою: {reply_markup}")
         
         try:
-            response = requests.post(url, data=data)
+            response = requests.post(url, data=data, proxies=proxies, timeout=30)
             print(f"Відповідь Telegram для {chat_id}: {response.status_code}")
             
             if response.status_code == 200:
@@ -66,8 +99,12 @@ def send_telegram_message(text, reply_markup=None):
             else:
                 print(f"❌ Помилка {response.status_code}: {response.text}")
                 
+        except requests.exceptions.Timeout:
+            print(f"⏱️ Таймаут надсилання для {chat_id}")
+        except requests.exceptions.ConnectionError as e:
+            print(f"🔌 Помилка з'єднання для {chat_id}: {e}")
         except Exception as e:
-            print(f"Помилка надсилання для {chat_id}: {e}")
+            print(f"❌ Помилка надсилання для {chat_id}: {e}")
 
 def send_ad_with_button(ad):
     """Надсилає оголошення з кнопкою 'Позначити як прочитане'"""
@@ -171,8 +208,11 @@ def parse_olx_page():
         'Accept-Language': 'uk,ru;q=0.9,en;q=0.8',
     }
     
+    proxies = get_proxies()
+    
     try:
-        response = requests.get(OLX_URL, headers=headers, timeout=10)
+        print(f"🌐 Запит до OLX з проксі: {proxies if proxies else 'без проксі'}")
+        response = requests.get(OLX_URL, headers=headers, proxies=proxies, timeout=30)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -193,9 +233,13 @@ def parse_olx_page():
         
         return new_ads
         
+    except requests.exceptions.Timeout:
+        print("⏱️ Таймаут при парсингу OLX")
+    except requests.exceptions.ConnectionError as e:
+        print(f"🔌 Помилка з'єднання з OLX: {e}")
     except Exception as e:
-        print(f"Помилка парсингу: {e}")
-        return []
+        print(f"❌ Помилка парсингу: {e}")
+    return []
 
 def load_seen_ids():
     """Завантажує ID вже відправлених оголошень з файлу"""
@@ -212,6 +256,8 @@ def save_seen_ids(seen_ids):
 
 def process_callback(callback):
     """Обробляє callback від кнопки"""
+    proxies = get_proxies()
+    
     try:
         callback_data = callback.get("data", "")
         callback_id = callback.get("id", "")
@@ -237,7 +283,7 @@ def process_callback(callback):
             }
             
             print(f"   Відправляємо answerCallbackQuery...")
-            answer_response = requests.post(answer_url, json=answer_data)
+            answer_response = requests.post(answer_url, json=answer_data, proxies=proxies, timeout=30)
             print(f"   Відповідь на callback: {answer_response.status_code}")
             
             if answer_response.status_code == 200:
@@ -260,7 +306,7 @@ def process_callback(callback):
                     "reply_markup": json.dumps({"inline_keyboard": []})
                 }
                 
-                edit_response = requests.post(edit_url, json=edit_data)
+                edit_response = requests.post(edit_url, json=edit_data, proxies=proxies, timeout=30)
                 print(f"   Редагування повідомлення: {edit_response.status_code}")
                 
                 if edit_response.status_code == 200:
@@ -278,6 +324,7 @@ def process_callback(callback):
 def get_updates():
     """Отримує оновлення від Telegram"""
     global last_update_id
+    proxies = get_proxies()
     
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
     
@@ -290,7 +337,7 @@ def get_updates():
     print(f"\n🔄 Перевіряємо оновлення Telegram (offset: {last_update_id})...")
     
     try:
-        response = requests.get(url, params=params, timeout=35)
+        response = requests.get(url, params=params, proxies=proxies, timeout=35)
         data = response.json()
         
         if data.get("ok"):
@@ -338,6 +385,15 @@ def main():
     print("ЗАПУСК БОТА МОНІТОРИНГУ OLX")
     print("=" * 60)
     
+    # Виводимо інформацію про проксі
+    proxies = get_proxies()
+    if proxies:
+        print(f"\n🌐 Використовуються проксі: {proxies}")
+        print(f"   HTTP_PROXY: {HTTP_PROXY}")
+        print(f"   HTTPS_PROXY: {HTTPS_PROXY}")
+    else:
+        print("\n🌐 Проксі не налаштовані, використовується пряме з'єднання")
+    
     # Спочатку видаляємо webhook
     print("\n🔍 Перевіряємо та видаляємо webhook...")
     if not delete_webhook():
@@ -349,13 +405,22 @@ def main():
     print("\n🔍 Перевіряємо підключення до Telegram API...")
     try:
         test_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getMe"
-        test_response = requests.get(test_url)
+        test_response = requests.get(test_url, proxies=proxies, timeout=30)
         if test_response.status_code == 200:
             bot_info = test_response.json()
             print(f"✅ Бот підключено: @{bot_info['result']['username']}")
         else:
             print(f"❌ Помилка підключення: {test_response.text}")
+            print("   Спробуйте перевірити проксі або токен")
             return
+    except requests.exceptions.Timeout:
+        print("❌ Таймаут при підключенні до Telegram")
+        print("   Можливо, проксі не працюють")
+        return
+    except requests.exceptions.ConnectionError as e:
+        print(f"❌ Помилка з'єднання з Telegram: {e}")
+        print("   Перевірте проксі та інтернет-з'єднання")
+        return
     except Exception as e:
         print(f"❌ Помилка підключення: {e}")
         return
