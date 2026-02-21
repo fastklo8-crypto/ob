@@ -9,7 +9,7 @@ import threading
 
 # ====== НАЛАШТУВАННЯ ======
 TELEGRAM_TOKEN = "8375812588:AAFFJSZbzwQLnqo4w7KlFln8nW-_EBl8En4"
-TELEGRAM_CHAT_ID = "8311072217"  # Тимчасово тільки один chat_id
+TELEGRAM_CHAT_ID = "8311072217, 399707006, 390799616"  # Тимчасово тільки один chat_id
 OLX_URL = "https://www.olx.ua/uk/kiev/?search%5Border%5D=created_at:desc&search%5Bfilter_float_price:from%5D=100000"
 SEEN_FILE = "seen_ads.txt"
 CHECK_INTERVAL = 900
